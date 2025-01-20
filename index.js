@@ -5,7 +5,17 @@ const cors = require('cors');
 require('dotenv').config();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors(
+  {
+    origin: [
+      "http://localhost:5173",
+      "https://news-paper-91c56.web.app",
+
+    ],
+    // credentials: true
+  }
+));
+app.use(express.json());
 app.use(express.json());
 
 
@@ -29,33 +39,90 @@ async function run() {
 
     const newsCollection = client.db("newsDb").collection("allNews")
 
+   
+    app.get('/newsId/:id', async (req, res) => {
+      const id = req.params.id
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ error: "Invalid ObjectId format" });
+      } 
+      const query = { _id: new ObjectId(id) }
+      const result = await newsCollection.findOne(query);
+      res.send(result);
+   
+    })
+
+
+    // get all news and filter and implement the search option
     app.get('/news', async (req, res) => {
-      const result = await newsCollection.find().toArray();
-      res.send(result)
+      const { publisher, tags, title } = req.query;
+
+      // Build a query object based on provided filters
+      const query = {};
+
+
+      if (publisher) {
+        query.publisher = publisher;
+      }
+
+      if (tags) {
+        const tagsArray = tags.split(',');
+        query.tags = { $in: tagsArray }; tags
+      }
+
+
+      if (title) {
+        query.title = { $regex: new RegExp(title, 'i') };
+      }
+
+      try {
+
+        const result = await newsCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: 'Error fetching articles' });
+      }
     });
 
-app.get('/news/:id',async(req,res)=>{
-  const id = req.params.id;
- if (id.length !== 24) {
-    return res.status(400).send({ message: 'Invalid ID format' });
-  }
 
-  try {
-    const query = { _id: id }; 
-    const result = await newsCollection.findOne(query);
+    // update view count
+    app.post('/update-view/:id', async (req, res) => {
+      const id = req.params.id;
 
-    if (!result) {
-      
-      return res.status(404).send({ message: 'News not found' });
-    }
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ error: "Invalid ObjectId format" });
+      }
 
-    res.send(result);
-  } catch (error) {
-    
-    res.status(500).send({ message: 'Internal server error' });
-  }
-  
-})
+      const query = { _id: new ObjectId(id) };
+      const update = { $inc: { viewCount: 1 } };
+
+      try {
+        const result = await newsCollection.updateOne(query, update);
+        if (result.modifiedCount > 0) {
+          res.send({ message: 'View count updated successfully' });
+        } else {
+          res.status(404).send({ message: 'Article not found' });
+        }
+      } catch (error) {
+        res.status(500).send({ error: 'Error updating view count' });
+      }
+    });
+    // trending card
+    app.get('/trending', async (req, res) => {
+      try {
+        const trendingArticles = await newsCollection
+          .find()
+          .sort({ viewCount: -1 })
+          .limit(6)
+          .toArray();
+
+        res.send(trendingArticles);
+      } catch (error) {
+        res.status(500).send({ error: 'Error fetching trending articles' });
+      }
+    });
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
