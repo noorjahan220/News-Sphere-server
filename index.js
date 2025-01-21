@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const jwt = require('jsonwebtoken')
 // const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const port = process.env.PORT || 3000;
@@ -37,18 +38,82 @@ async function run() {
     await client.connect();
 
 
-    const newsCollection = client.db("newsDb").collection("allNews")
+    const newsCollection = client.db("newsDb").collection("allNews");
+    const userCollection = client.db("newsDb").collection("users")
 
-   
+    // jwt related api
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+      res.send({ token });
+    })
+
+    // middleware
+    const verifyToken = (req,res,next) =>{
+      console.log('inside verify token',req.headers.authorization);
+      if(!req.headers.authorization){
+        return res.status(401).send({ message : 'forbidden access'});
+      }
+      const token = req.headers.authorization.split('')[1];
+      jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+        if(err){
+          return res.status(401).send({ message : 'forbidden access'});
+        }
+        req.decoded = decoded;
+        next();
+      })
+    }
+
+    // user related api
+    app.get('/users',verifyToken, async (req, res) => {
+      console.log(req.headers)
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    })
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      // insert Email if user doesn't exists
+      const query = { email: user.email }
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: 'user already exists', insertedId: null })
+      }
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    })
+
+    // make admin
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: 'admin'
+        }
+
+      }
+      const result = await userCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
+
+
     app.get('/newsId/:id', async (req, res) => {
       const id = req.params.id
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ error: "Invalid ObjectId format" });
-      } 
+      }
       const query = { _id: new ObjectId(id) }
       const result = await newsCollection.findOne(query);
       res.send(result);
-   
+
     })
 
 
