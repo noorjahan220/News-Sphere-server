@@ -39,7 +39,8 @@ async function run() {
 
 
     const newsCollection = client.db("newsDb").collection("allNews");
-    const userCollection = client.db("newsDb").collection("users")
+    const userCollection = client.db("newsDb").collection("users");
+    const publisherCollection = client.db("newsDb").collection("publishers");
 
     // jwt related api
     app.post('/jwt', async (req, res) => {
@@ -49,49 +50,52 @@ async function run() {
     })
 
     // middleware
-    const verifyToken = (req,res,next) =>{
-      console.log('inside verify token',req.headers.authorization);
-      if(!req.headers.authorization){
-        return res.status(401).send({ message : 'forbidden access'});
-      }
-      const token = req.headers.authorization.split('')[1];
-      jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
-        if(err){
-          return res.status(401).send({ message : 'forbidden access'});
-        }
-        req.decoded = decoded;
-        next();
-      })
-    }
+    const verifyToken = (req, res, next) => {
+      console.log('inside verify token', req.headers.authorization);
 
-    const verifyAdmin = async(req,res,next)=>{
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: 'Authorization header missing, forbidden access' });
+      }
+
+      const token = req.headers.authorization.split(' ')[1]; // Fix: Split by space to get the token
+
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: 'Invalid token, forbidden access' });
+        }
+        req.decoded = decoded; // Attach decoded token payload to the request object
+        next();
+      });
+    };
+
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const query = { email : email};
-      const user =await userCollection.findOne(query)
-      const isAdmin =user?.role === 'admin';
-      if(!isAdmin){
-        return res.status(403).send({message:'forbidden access'})
+      const query = { email: email };
+      const user = await userCollection.findOne(query)
+      const isAdmin = user?.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' })
       }
       next()
     }
 
     // user related api
-    app.get('/users',verifyToken, async (req, res) => {
+    app.get('/users', verifyToken, async (req, res) => {
       console.log(req.headers)
       const result = await userCollection.find().toArray();
       res.send(result);
     })
 
-    app.get('/user/admin/:email',verifyToken ,async (req, res)=>{
+    app.get('/user/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
-      if(email !== req.decoded.email ){
-        return res.status(403).send({message : 'unauthorized access' })
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'unauthorized access' })
       }
-      const query = {email : email};
+      const query = { email: email };
       const user = await userCollection.findOne(query);
-      let admin= false;
+      let admin = false;
 
-      if(user){
+      if (user) {
         admin = user?.role === 'admin'
       }
       res.send({ admin })
@@ -211,6 +215,47 @@ async function run() {
         res.status(500).send({ error: 'Error fetching trending articles' });
       }
     });
+
+    // adding article 
+    // app.post('/articles', async (req, res) => {
+    //   const article = req.body;
+    //   try {
+    //     const result = await newsCollection.insertOne(article);
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).send({ error: 'Failed to add article' });
+    //   }
+    // });
+
+
+
+
+    // Add Publisher API
+    app.post('/publishers', async (req, res) => {
+      const publisher = req.body;
+      try {
+        const result = await publisherCollection.insertOne(publisher);
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to add publisher" });
+      }
+    });
+
+
+    // Get Publishers API (for dropdowns)
+    app.get('/publishers', async (req, res) => {
+      try {
+        const result = await
+          publisherCollection.find()
+            .toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ error: "Failed to fetch publishers" });
+      }
+    });
+
 
 
 
