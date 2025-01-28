@@ -442,9 +442,9 @@ app.get('/articles/:id', async (req, res) => {
      app.get('/premium-articles', async (req, res) => {
       try {
         const premiumArticles = await newsCollection
-          .find({ isPremium: true }) // Filter only premium articles
-          .sort({ viewCount: -1 }) // Optional: Sort by view count or other criteria
-          .limit(5) // Optional: Limit to top 5
+          .find({ isPremium: true }) 
+          .sort({ viewCount: -1 }) 
+          .limit(5)
           .toArray();
         res.send(premiumArticles);
       } catch (err) {
@@ -455,7 +455,7 @@ app.get('/articles/:id', async (req, res) => {
     // Decline an article with a reason
     app.patch('/articles/decline/:id', verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
-      const { reason } = req.body; // Reason for decline
+      const { reason } = req.body; 
 
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ error: "Invalid ObjectId format" });
@@ -488,7 +488,7 @@ app.get('/articles/:id', async (req, res) => {
       }
     });
 
-    app.patch('/articles/:id', upload.single('image'), async (req, res) => {
+    app.patch('/articles/:id',verifyToken, upload.single('image'), async (req, res) => {
       const { id } = req.params;
       const updatedFields = req.body;
       // Image processing should be done here if needed
