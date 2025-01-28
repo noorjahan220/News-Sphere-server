@@ -3,6 +3,8 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const multer = require('multer');
+const upload = multer();
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 3000;
@@ -52,7 +54,7 @@ async function run() {
 
       // console.log("Authorization header:", authorization);
       // console.log("Headers:", req.headers);
-      
+
       const token = authorization.split(' ')[1];
 
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -75,7 +77,7 @@ async function run() {
     };
 
     // User related API
-   
+
 
     app.get('/users', async (req, res) => {
       try {
@@ -118,7 +120,7 @@ async function run() {
 
 
 
-    app.get('/user/admin/:email',verifyToken , async (req, res) => {
+    app.get('/user/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: 'Unauthorized access' });
@@ -136,233 +138,134 @@ async function run() {
 
       const userInfo = {
         ...user,
-        premiumTaken: null, 
+        premiumTaken: null,
       };
 
       const result = await userCollection.insertOne(userInfo);
       res.send(result);
     });
-    // app.post('/subscribe', async (req, res) => {
-    //   const email = req.decoded.email;
-    //   const { subscriptionPeriod } = req.body; // 1 minute, 5 days, or 10 days
-    
-    //   const user = await userCollection.findOne({ email });
-    //   if (!user) {
-    //     return res.status(404).send({ message: 'User not found' });
-    //   }
-    
-    //   let expiryTime;
-    //   const currentTime = new Date();  // Default current time (GMT/UTC)
-    
-    //   // Calculate expiry based on selected period
-    //   if (subscriptionPeriod === '1 minute') {
-    //     expiryTime = new Date(currentTime.getTime() + 1 * 60000); // Add 1 minute
-    //   } else if (subscriptionPeriod === '5 days') {
-    //     expiryTime = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // Add 5 days
-    //   } else if (subscriptionPeriod === '10 days') {
-    //     expiryTime = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // Add 10 days
-    //   }
-    
-    //   // Ensure expiryTime is in GMT
-    //   const expiryTimeGMT = expiryTime.toGMTString(); // Convert to GMT string
-    
-    //   // Update the premiumTaken field
-    //   await userCollection.updateOne(
-    //     { email },
-    //     { $set: { premiumTaken: expiryTimeGMT } }
-    //   );
-    
-    //   res.send({ message: 'Subscription successful', premiumTaken: expiryTimeGMT });
-    // });
-    
-    // app.get('/user-status', verifyToken, async (req, res) => {
-    //   const email = req.decoded.email;
-    //   const user = await userCollection.findOne({ email });
-    
-    //   if (!user) {
-    //     return res.status(404).send({ message: 'User not found' });
-    //   }
-    
-    //   const currentTime = new Date(); // Current UTC time
-    //   if (user.premiumTaken) {
-    //     const expiryDate = new Date(user.premiumTaken); // Convert stored date to UTC
-    
-    //     if (currentTime > expiryDate) {
-    //       // Subscription expired
-    //       await userCollection.updateOne(
-    //         { email },
-    //         { $set: { premiumTaken: null } }
-    //       );
-    //       return res.send({ message: 'Your subscription has expired' });
-    //     } else {
-    //       // Calculate remaining time
-    //       const remainingTime = expiryDate - currentTime;
-    //       const remainingDays = Math.floor(remainingTime / (1000 * 3600 * 24)); // Convert to days
-    //       return res.send({
-    //         message: 'User has an active subscription',
-    //         remainingDays,
-    //       });
-    //     }
-    //   }
-    
-    //   return res.send({ message: 'User has no active subscription' });
-    // });
-    
-    
-    
-    
-    
-
-    // // Endpoint to update user's premium subscription
-    // app.patch('/update-subscription', verifyToken, async (req, res) => {
-    //   const email = req.decoded.email;
-    //   const { subscriptionPeriod } = req.body; // Expected: '1', '5', or '10'
-    
-    //   const subscriptionPeriodMap = {
-    //     '1': '1 minute',
-    //     '5': '5 days',
-    //     '10': '10 days',
-    //   };
-    
-    //   const periodDescription = subscriptionPeriodMap[subscriptionPeriod];
-    
-    //   if (!periodDescription) {
-    //     return res.status(400).send({ message: 'Invalid subscription period' });
-    //   }
-    
-    //   // Calculate expiration date in UTC
-    //   const currentTime = new Date();  // Default current time is in UTC
-    //   let expirationDate;
-    
-    //   if (periodDescription === '1 minute') {
-    //     expirationDate = new Date(currentTime.getTime() + 1 * 60000); // 1 minute in ms
-    //   } else if (periodDescription === '5 days') {
-    //     expirationDate = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // 5 days in ms
-    //   } else if (periodDescription === '10 days') {
-    //     expirationDate = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // 10 days in ms
-    //   }
-    
-    //   // Update the premiumTaken field
-    //   const result = await userCollection.updateOne(
-    //     { email },
-    //     { $set: { premiumTaken: expirationDate } }
-    //   );
-    
-    //   if (result.modifiedCount > 0) {
-    //     return res.send({ message: 'Subscription updated successfully.' });
-    //   }
-    
-    //   return res.status(400).send({ message: 'Failed to update subscription.' });
-    // });
-    
-    
-// Endpoint to update subscription
-app.post('/subscribe', verifyToken, async (req, res) => {
-  const email = req.decoded.email;
-  const { subscriptionPeriod } = req.body; // 1 minute, 5 days, or 10 days
-  
-  const user = await userCollection.findOne({ email });
-  if (!user) {
-    return res.status(404).send({ message: 'User not found' });
-  }
-
-  let expiryTime;
-  const currentTime = new Date();  
-  
-  
-  if (subscriptionPeriod === '1 minute') {
-    expiryTime = new Date(currentTime.getTime() + 1 * 60000); // Add 1 minute
-  } else if (subscriptionPeriod === '5 days') {
-    expiryTime = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // Add 5 days
-  } else if (subscriptionPeriod === '10 days') {
-    expiryTime = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // Add 10 days
-  }
 
 
-  const expiryTimeGMT = expiryTime.toGMTString(); // Convert to GMT string
-  
-  // Update the premiumTaken field
-  await userCollection.updateOne(
-    { email },
-    { $set: { premiumTaken: expiryTimeGMT } }
-  );
-  
-  res.send({ message: 'Subscription successful', premiumTaken: expiryTimeGMT });
-});
+
+    // Endpoint to update subscription
+    app.post('/subscribe', verifyToken, async (req, res) => {
+      const email = req.decoded.email;
+      const { subscriptionPeriod } = req.body; // 1 minute, 5 days, or 10 days
+
+      const user = await userCollection.findOne({ email });
+      if (!user) {
+        return res.status(404).send({ message: 'User not found' });
+      }
+
+      let expiryTime;
+      const currentTime = new Date();
 
 
-// Endpoint to check user's subscription status
-app.get('/user-status', verifyToken, async (req, res) => {
-  const email = req.decoded.email;
-  const user = await userCollection.findOne({ email });
+      if (subscriptionPeriod === '1 minute') {
+        expiryTime = new Date(currentTime.getTime() + 1 * 60000); // Add 1 minute
+      } else if (subscriptionPeriod === '5 days') {
+        expiryTime = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // Add 5 days
+      } else if (subscriptionPeriod === '10 days') {
+        expiryTime = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // Add 10 days
+      }
 
-  if (!user) {
-    return res.status(404).send({ message: 'User not found' });
-  }
 
-  const currentTime = new Date(); 
-  if (user.premiumTaken) {
-    const expiryDate = new Date(user.premiumTaken); 
+      const expiryTimeGMT = expiryTime.toGMTString(); // Convert to GMT string
 
-    if (currentTime > expiryDate) {
-      // Subscription expired
+      // Update the premiumTaken field
       await userCollection.updateOne(
         { email },
-        { $set: { premiumTaken: null } } // Reset premiumTaken if expired
+        { $set: { premiumTaken: expiryTimeGMT } }
       );
-      return res.send({ message: 'Your subscription has expired' });
-    } else {
-      // Calculate remaining time correctly
-      const remainingTime = expiryDate - currentTime;
-      const remainingMilliseconds = remainingTime % (1000 * 3600 * 24);
-      const remainingDays = Math.floor(remainingTime / (1000 * 3600 * 24)); 
-      const remainingHours = Math.floor(remainingMilliseconds / (1000 * 3600)); // Convert to hours
-      return res.send({
-        message: 'User has an active subscription',
-        remainingDays,
-        remainingHours
-      });
-    }
-  }
 
-  return res.send({ message: 'User has no active subscription' });
+      res.send({ message: 'Subscription successful', premiumTaken: expiryTimeGMT });
+    });
+
+
+    // Endpoint to check user's subscription status
+    app.get('/user-status', verifyToken, async (req, res) => {
+      const email = req.decoded.email;
+      const user = await userCollection.findOne({ email });
+
+      if (!user) {
+        return res.status(404).send({ message: 'User not found' });
+      }
+
+      const currentTime = new Date();
+      if (user.premiumTaken) {
+        const expiryDate = new Date(user.premiumTaken);
+
+        if (currentTime > expiryDate) {
+          // Subscription expired
+          await userCollection.updateOne(
+            { email },
+            { $set: { premiumTaken: null } } // Reset premiumTaken if expired
+          );
+          return res.send({ message: 'Your subscription has expired' });
+        } else {
+          // Calculate remaining time correctly
+          const remainingTime = expiryDate - currentTime;
+          const remainingMilliseconds = remainingTime % (1000 * 3600 * 24);
+          const remainingDays = Math.floor(remainingTime / (1000 * 3600 * 24));
+          const remainingHours = Math.floor(remainingMilliseconds / (1000 * 3600)); // Convert to hours
+          return res.send({
+            message: 'User has an active subscription',
+            remainingDays,
+            remainingHours
+          });
+        }
+      }
+
+      return res.send({ message: 'User has no active subscription' });
+    });
+
+
+// Route to handle decline
+app.post('/articles/:id/decline', async (req, res) => {
+  const { reason } = req.body;
+  await newsCollection.updateOne(
+    { _id: req.params.id },
+    { status: 'declined', declineReason: reason }
+  );
+  res.sendStatus(200);
 });
-
-
-
-// Endpoint to update subscription
-app.patch('/update-subscription', verifyToken, async (req, res) => {
-  const { subscriptionPeriod } = req.body;
-  const email = req.decoded.email;
-
-  let expirationTime;
-  const currentTime = new Date();  // Default current time is in UTC
-
-  if (subscriptionPeriod === '1') {
-    expirationTime = new Date(currentTime.getTime() + 1 * 60000); // 1 minute in ms
-  } else if (subscriptionPeriod === '5') {
-    expirationTime = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // 5 days in ms
-  } else if (subscriptionPeriod === '10') {
-    expirationTime = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // 10 days in ms
-  }
-
-  try {
-    // Update the user's premiumTaken field
-    const result = await userCollection.updateOne(
-      { email },
-      { $set: { premiumTaken: expirationTime.toGMTString() } }
-    );
-
-    if (result.modifiedCount > 0) {
-      res.status(200).json({ message: 'Subscription updated successfully' });
-    } else {
-      res.status(400).json({ message: 'Failed to update subscription' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Something went wrong' });
-  }
+app.get('/articles/:id', async (req, res) => {
+  const article = await newsCollection.findById(req.params.id);
+  res.json(article);
 });
+    // Endpoint to update subscription
+    app.patch('/update-subscription', verifyToken, async (req, res) => {
+      const { subscriptionPeriod } = req.body;
+      const email = req.decoded.email;
+
+      let expirationTime;
+      const currentTime = new Date();  // Default current time is in UTC
+
+      if (subscriptionPeriod === '1') {
+        expirationTime = new Date(currentTime.getTime() + 1 * 60000); // 1 minute in ms
+      } else if (subscriptionPeriod === '5') {
+        expirationTime = new Date(currentTime.getTime() + 5 * 24 * 60 * 60000); // 5 days in ms
+      } else if (subscriptionPeriod === '10') {
+        expirationTime = new Date(currentTime.getTime() + 10 * 24 * 60 * 60000); // 10 days in ms
+      }
+
+      try {
+        // Update the user's premiumTaken field
+        const result = await userCollection.updateOne(
+          { email },
+          { $set: { premiumTaken: expirationTime.toGMTString() } }
+        );
+
+        if (result.modifiedCount > 0) {
+          res.status(200).json({ message: 'Subscription updated successfully' });
+        } else {
+          res.status(400).json({ message: 'Failed to update subscription' });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Something went wrong' });
+      }
+    });
 
     app.delete('/users/:id', async (req, res) => {
       const id = req.params.id;
@@ -432,7 +335,7 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
       res.send(trendingArticles);
     });
 
-   
+
     // Add article to the news collection with isApproved set to false
     app.post('/articles', async (req, res) => {
       const { title, description, publisher, tags, image, createdAt, email, name, userImg } = req.body;
@@ -462,7 +365,7 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
         res.status(500).send({ message: 'Error while adding article', error: err.message });
       }
     });
-    
+
     // Get all news with filters (publisher, tags, title)
     app.get('/news', async (req, res) => {
       const { publisher, tags, title } = req.query;
@@ -482,7 +385,7 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
       }
     });
 
-   
+
     // Admin approves an article by updating isApproved to true
     app.put('/approve-article/:id', verifyToken, verifyAdmin, async (req, res) => {
       const articleId = req.params.id;
@@ -515,7 +418,7 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
     });
 
     // Get Publishers API
-    app.get('/publishers',verifyToken, async (req, res) => {
+    app.get('/publishers', async (req, res) => {
       const result = await publisherCollection.find().toArray();
       res.send(result);
     });
@@ -556,13 +459,13 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
         return res.status(400).send({ error: "Invalid ObjectId format" });
       }
 
-      const article = await pendingArticles.findOne({ _id: new ObjectId(id) });
+      const article = await newsCollection.findOne({ _id: new ObjectId(id) });
       if (!article) return res.status(404).send({ error: 'Article not found' });
 
-      await pendingArticles.updateOne({ _id: new ObjectId(id) }, { $set: { declinedReason: reason, isApproved: false } });
+      await newsCollection.updateOne({ _id: new ObjectId(id) }, { $set: { declinedReason: reason, isApproved: false } });
       res.send({ message: 'Article declined successfully' });
     });
-    
+
     // Get all pending (unapproved) articles for the admin dashboard
     app.get('/pending-articles', verifyToken, verifyAdmin, async (req, res) => {
       try {
@@ -582,9 +485,109 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
         res.status(500).send({ message: 'Error fetching articles', error: err.message });
       }
     });
-    
 
-  
+    app.patch('/articles/:id', upload.single('image'), async (req, res) => {
+      const { id } = req.params;
+      const updatedFields = req.body;
+      // Image processing should be done here if needed
+    
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: 'Invalid article ID' });
+      }
+    
+      try {
+        const result = await newsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedFields }
+        );
+    
+        if (result.matchedCount > 0) {
+          res.status(200).send({ message: 'Article updated successfully' });
+        } else {
+          res.status(400).send({ message: 'No changes were made or article not found' });
+        }
+      } catch (err) {
+        res.status(500).send({ message: 'Error while updating article', error: err.message });
+      }
+    });
+    
+// Delete article
+app.delete('/articles/:id', verifyToken,async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await newsCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount > 0) {
+      res.status(200).send({ message: 'Article deleted successfully' });
+    } else {
+      res.status(404).send({ message: 'Article not found' });
+    }
+  } catch (err) {
+    res.status(500).send({ message: 'Error while deleting article', error: err.message });
+  }
+});
+
+// Get article by ID
+app.get('/articles/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const article = await newsCollection.findOne({ _id: new ObjectId(id) });
+
+    if (article) {
+      res.status(200).json(article);
+    } else {
+      res.status(404).send({ message: 'Article not found' });
+    }
+  } catch (err) {
+    res.status(500).send({ message: 'Error while fetching article', error: err.message });
+  }
+});
+
+app.put('/reject-article/:id', verifyToken, verifyAdmin, async (req, res) => {
+  const articleId = req.params.id;
+  const { reason } = req.body; // Expecting a reason in the request body
+
+  if (!reason) {
+    return res.status(400).send({ message: 'Rejection reason is required' });
+  }
+
+  try {
+    await newsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { declinedReason: reason, isApproved: false } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).send({ message: 'Article not found' });
+    }
+
+    res.status(200).send({ message: 'Article rejected', reason: reason });
+  } catch (err) {
+    res.status(500).send({ message: 'Error rejecting article', error: err.message });
+  }
+});
+app.get('/pending-article/:id', async (req, res) => {
+  const articleId = req.params.id;
+
+  try {
+    const article = await newsCollection.findOne({ _id: new ObjectId(articleId) });
+
+    if (!article) {
+      return res.status(404).send({ message: 'Article not found' });
+    }
+
+    // Check if the article was rejected and include the rejection reason
+    if (article.status === 'rejected') {
+      return res.status(200).send({ reason: article.reason });
+    }
+
+    res.status(200).send({ message: 'Article not rejected yet' });
+  } catch (err) {
+    res.status(500).send({ message: 'Error fetching article', error: err.message });
+  }
+});
 
     app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { amount } = req.body; // The amount will come from the frontend (in cents)
@@ -606,28 +609,28 @@ app.patch('/update-subscription', verifyToken, async (req, res) => {
     app.get('/get-premium-status', verifyToken, async (req, res) => {
       const email = req.decoded.email;
       const user = await userCollection.findOne({ email });
-    
+
       if (!user) {
         return res.status(404).send({ message: 'User not found' });
       }
-    
+
       const currentTime = new Date();
       const premiumTakenDate = user.premiumTaken ? new Date(user.premiumTaken) : null;
-    
+
       let isPremium = false;
       let expiryDate = null;
-    
+
       if (premiumTakenDate && premiumTakenDate > currentTime) {
         isPremium = true;
         expiryDate = premiumTakenDate;
       }
-    
+
       res.send({
         isPremium,
         expiryDate,
       });
     });
-    
+
 
 
 
