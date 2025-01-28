@@ -406,8 +406,15 @@ app.get('/articles/:id', async (req, res) => {
       }
     });
 
-    // Add Publisher API
-    app.post('/publishers', async (req, res) => {
+   
+
+    // Get Publishers API
+    app.get('/publishers', async (req, res) => {
+      const result = await publisherCollection.find().toArray();
+      res.send(result);
+    });
+     // Add Publisher API
+     app.post('/publishers', async (req, res) => {
       const publisher = req.body;
       try {
         const result = await publisherCollection.insertOne(publisher);
@@ -415,12 +422,6 @@ app.get('/articles/:id', async (req, res) => {
       } catch (error) {
         res.status(500).send({ error: "Failed to add publisher" });
       }
-    });
-
-    // Get Publishers API
-    app.get('/publishers', async (req, res) => {
-      const result = await publisherCollection.find().toArray();
-      res.send(result);
     });
 
 
