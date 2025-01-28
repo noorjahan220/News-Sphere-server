@@ -336,35 +336,7 @@ app.get('/articles/:id', async (req, res) => {
     });
 
 
-    // Add article to the news collection with isApproved set to false
-    app.post('/articles', async (req, res) => {
-      const { title, description, publisher, tags, image, createdAt, email, name, userImg } = req.body;
-
-      if (!title || !description || !publisher) {
-        return res.status(400).send({ message: 'Missing required fields' });
-      }
-
-      const newArticle = {
-        title,
-        description,
-        publisher,
-        tags,
-        image,
-        name,
-        email,
-        userImg,
-        isApproved: false,  // Not approved yet
-        status: 'pending',  // Optional status
-        createdAt: createdAt || new Date(),
-      };
-
-      try {
-        const result = await newsCollection.insertOne(newArticle);
-        res.status(201).send({ insertedId: result.insertedId });
-      } catch (err) {
-        res.status(500).send({ message: 'Error while adding article', error: err.message });
-      }
-    });
+   
 
     // Get all news with filters (publisher, tags, title)
     app.get('/news', async (req, res) => {
@@ -385,7 +357,35 @@ app.get('/articles/:id', async (req, res) => {
       }
     });
 
+ // Add article to the news collection with isApproved set to false
+ app.post('/articles', async (req, res) => {
+  const { title, description, publisher, tags, image, createdAt, email, name, userImg } = req.body;
 
+  if (!title || !description || !publisher) {
+    return res.status(400).send({ message: 'Missing required fields' });
+  }
+
+  const newArticle = {
+    title,
+    description,
+    publisher,
+    tags,
+    image,
+    name,
+    email,
+    userImg,
+    isApproved: false,  // Not approved yet
+    status: 'pending',  // Optional status
+    createdAt: createdAt || new Date(),
+  };
+
+  try {
+    const result = await newsCollection.insertOne(newArticle);
+    res.status(201).send({ insertedId: result.insertedId });
+  } catch (err) {
+    res.status(500).send({ message: 'Error while adding article', error: err.message });
+  }
+});
     // Admin approves an article by updating isApproved to true
     app.put('/approve-article/:id', verifyToken, verifyAdmin, async (req, res) => {
       const articleId = req.params.id;
