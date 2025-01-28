@@ -425,19 +425,7 @@ app.get('/articles/:id', async (req, res) => {
     });
 
 
-    // Fetch premium articles
-    app.get('/premium-articles', async (req, res) => {
-      try {
-        const premiumArticles = await newsCollection
-          .find({ isPremium: true }) // Filter only premium articles
-          .sort({ viewCount: -1 }) // Optional: Sort by view count or other criteria
-          .limit(5) // Optional: Limit to top 5
-          .toArray();
-        res.send(premiumArticles);
-      } catch (err) {
-        res.status(500).send({ message: 'Error fetching premium articles', error: err.message });
-      }
-    });
+   
 
     // Mark article as premium
     app.patch('/articles/premium/:id', async (req, res) => {
@@ -449,6 +437,19 @@ app.get('/articles/:id', async (req, res) => {
       result.modifiedCount > 0
         ? res.send({ message: 'Article marked as premium' })
         : res.status(404).send({ error: 'Article not found' });
+    });
+     // Fetch premium articles
+     app.get('/premium-articles', async (req, res) => {
+      try {
+        const premiumArticles = await newsCollection
+          .find({ isPremium: true }) // Filter only premium articles
+          .sort({ viewCount: -1 }) // Optional: Sort by view count or other criteria
+          .limit(5) // Optional: Limit to top 5
+          .toArray();
+        res.send(premiumArticles);
+      } catch (err) {
+        res.status(500).send({ message: 'Error fetching premium articles', error: err.message });
+      }
     });
 
     // Decline an article with a reason
