@@ -229,9 +229,17 @@ app.post('/articles/:id/decline', async (req, res) => {
   );
   res.sendStatus(200);
 });
-app.get('/articles/:id', async (req, res) => {
-  const article = await newsCollection.findById(req.params.id);
-  res.json(article);
+app.get('/articles/:id',verifyToken, async (req, res) => {
+  try {
+    const article = await newsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    if (!article) {
+      return res.status(404).json({ message: "Article not found" });
+    }
+    res.json(article);
+  } catch (error) {
+    console.error("Error fetching article:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 });
     // Endpoint to update subscription
     app.patch('/update-subscription', verifyToken, async (req, res) => {
@@ -414,7 +422,7 @@ app.get('/articles/:id', async (req, res) => {
       res.send(result);
     });
      // Add Publisher API
-     app.post('/publishers', async (req, res) => {
+     app.post('/publishers',verifyToken,verifyAdmin, async (req, res) => {
       const publisher = req.body;
       try {
         const result = await publisherCollection.insertOne(publisher);
@@ -439,7 +447,7 @@ app.get('/articles/:id', async (req, res) => {
         : res.status(404).send({ error: 'Article not found' });
     });
      // Fetch premium articles
-     app.get('/premium-articles', async (req, res) => {
+     app.get('/premium-articles',verifyToken, async (req, res) => {
       try {
         const premiumArticles = await newsCollection
           .find({ isPremium: true }) 
@@ -488,13 +496,17 @@ app.get('/articles/:id', async (req, res) => {
       }
     });
 
-    app.patch('/articles/:id',verifyToken, upload.single('image'), async (req, res) => {
+    app.patch('/articles/:id', verifyToken, upload.single('image'), async (req, res) => {
       const { id } = req.params;
       const updatedFields = req.body;
-      // Image processing should be done here if needed
     
       if (!ObjectId.isValid(id)) {
         return res.status(400).send({ message: 'Invalid article ID' });
+      }
+    
+      // Handle image upload if a new file is provided
+      if (req.file) {
+        updatedFields.image = req.file.path; // Assuming you're storing the image URL/path
       }
     
       try {
