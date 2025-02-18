@@ -321,7 +321,7 @@ app.get('/articles/:id',verifyToken, async (req, res) => {
     });
 
 
-    // Update view count
+
     app.post('/update-view/:id', async (req, res) => {
       const id = req.params.id;
       if (!ObjectId.isValid(id)) {
