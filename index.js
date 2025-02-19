@@ -304,24 +304,25 @@ app.get('/articles/:id',verifyToken, async (req, res) => {
     // Get all news with filters (publisher, tags, title)
     app.get('/news', async (req, res) => {
       const { publisher, tags, title } = req.query;
-
+    
       try {
         const query = { isApproved: true }; // Only fetch approved articles
-
+    
         // Add additional filters for publisher, tags, and title (search)
         if (publisher) query.publisher = publisher;
         if (tags) query.tags = { $in: tags.split(',') }; // Assuming tags are comma-separated
         if (title) query.title = { $regex: title, $options: 'i' }; // Case-insensitive title search
-
+    
         const articles = await newsCollection.find(query).toArray();
         res.status(200).send(articles);
       } catch (error) {
         res.status(500).send({ message: 'Error fetching articles', error: error.message });
       }
     });
+    
 
 
-
+    // Update view count
     app.post('/update-view/:id', async (req, res) => {
       const id = req.params.id;
       if (!ObjectId.isValid(id)) {
